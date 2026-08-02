@@ -137,9 +137,10 @@ def main():
         cap.release()
         cv2.destroyAllWindows()
         landmarker.close()
-        with open('dump.pkl', 'wb') as file:
-            pickle.dump(tosave, file)
-            print(f'dumped {len(tosave.keys())} frames.')
+        if (keys_to_save := len(tosave.keys())) > 0:
+            with open('dump.pkl', 'wb') as file:
+                pickle.dump(tosave, file)
+                print(f'dumped {keys_to_save} frames.')
 
 if __name__ == "__main__":
     main()
