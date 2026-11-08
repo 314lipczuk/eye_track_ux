@@ -16,6 +16,9 @@ from pathlib import Path
 import threading
 import cv2
 
+import queue
+from pynput import mouse
+
 class FrameBuffer:
   def __init__(self, device, window_s=3.0, width=1200, height=800, fps=10 ):
     self.cap = cv2.VideoCapture(device)
@@ -64,14 +67,32 @@ def save_clip(frames, out_dir):
   for i, (t,f) in enumerate(frames):
     cv2.imwrite(str(out / f'{i:04d}_{t}.jpg'), f)
 
+def on_click(x,y, button, pressed):
+  events.put((time.monotonic_ns(), x,y,button.name, pressed))
+
+events = queue.Queue()
+
 if __name__ == '__main__':
+  listener = mouse.Listener(on_click=on_click)
+  listener.start()
   fb = FrameBuffer(1)
+
   time.sleep(3.5)
-  now = time.monotonic_ns()
-  clip = fb.slice(now - 2_000_000_000, now)
-  if len(clip) > 1:
-    span_s = (clip[-1][0] - clip[0][0]) / 1e9
-    print(f"{len(clip)} frames over {span_s:.2f}s")
-    print(f'frame shape {clip[0][1].shape}')
-  save_clip(clip, 'test')
-  fb.close()
+  try:
+    while (event := events.get()):
+      t, x, y, button, pressed = event
+      if pressed or button != 'left':
+        continue
+      now = time.monotonic_ns()
+      clip = fb.slice(now - 2_000_000_000, now)
+      if len(clip) > 1:
+        span_s = (clip[-1][0] - clip[0][0]) / 1e9
+        print(f"{len(clip)} frames over {span_s:.2f}s")
+        print(f'frame shape {clip[0][1].shape}')
+      save_clip(clip, 'recordings')
+      print(f'found: {button} at ({x},{y})')
+  except Exception as e:
+    print(e)
+  finally:
+    fb.close()
+    
